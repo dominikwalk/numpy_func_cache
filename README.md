@@ -1,15 +1,18 @@
-## NumpyFuncCache
+# NumpyFuncCache
 
-### Overview
+## Overview
 `NumpyFuncCache` is a Python class that provides simple file-based caching functionality for functions returning NumPy arrays. This can be particularly useful when working with computationally expensive functions that generate the same output for a given set of input parameters. Instead of recomputing the result every time, the class caches the result in a file, allowing for faster retrieval.
 
-### Limits and Important Notes
+## Limits and Important Notes
 
-#### Function Hashing
+### Function Hashing
 In the interests of simplicity, the `NumpyFuncCache` class calculates the hash for caching based on the function name and input parameters, **making it vulnerable to changes to the internal structure or calculations of the function**. If there are changes to the function, **users are responsible for manually clearing the cache to ensure the accuracy of the cached results.**
 
-#### Cache Size
+### Cache Size
 The class does not currently manage or limit the size of the cache. Depending on the size of cached NumPy arrays, the cache directory may grow large over time. Users are advised to monitor the cache directory size and take appropriate actions, such as clearing the cache or implementing additional mechanisms to manage cache size.
+
+### Thread Safety
+The `NumpyFuncCache` class is thread-safe, ensuring that cache operations are atomic and prevent race conditions in a multithreaded environment.
 
 ## Usage
 
