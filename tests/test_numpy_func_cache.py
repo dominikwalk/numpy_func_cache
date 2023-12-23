@@ -1,7 +1,9 @@
 import os
 import tempfile
 import numpy as np
+import threading
 import pytest
+
 from NumpyFuncCache.numpy_func_cache import NumpyFuncCache
 
 
@@ -82,3 +84,38 @@ def test_cache_clearing_with_dir_removal(temp_cache_dir):
 
     # Ensure the cache directory is removed
     assert not os.path.exists(temp_cache_dir)
+
+
+def test_thread_safety(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+
+    # Define a sample function for testing
+    def sample_func(x):
+        return np.array([x, x**2, x**3])
+
+    # Create a cached version of the function
+    cached_func = cache.create_cached_func(sample_func)
+
+    # Function to test caching with multiple threads
+    def test_caching():
+        result_thread = cached_func(42)
+        result_main = sample_func(42)
+        assert np.array_equal(result_main, result_thread)
+
+    # Start multiple threads to execute the test_caching function
+    threads = []
+    for _ in range(5):
+        thread = threading.Thread(target=test_caching)
+        threads.append(thread)
+
+    # Start all threads
+    for thread in threads:
+        thread.start()
+
+    # Wait for all threads to finish
+    for thread in threads:
+        thread.join()
+
+    # Ensure the cache directory contains the expected number of files
+    cache_files = os.listdir(temp_cache_dir)
+    assert len(cache_files) == 1  # One file for each unique function call
