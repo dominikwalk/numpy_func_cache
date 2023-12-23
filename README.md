@@ -50,9 +50,6 @@ cache.clear_cache()
 cache.clear_cache(remove_dir=True)
 ```
 
-## Important Note on Cache Size
-The `NumpyFuncCache` class does not currently manage or limit the size of the cache. Depending on the size of the NumPy arrays being cached, the cache directory can potentially grow very large. Users are advised to monitor the size of the cache directory and take appropriate actions, such as manually clearing the cache or implementing additional mechanisms to manage cache size.
-
 ## How It Works
 The class uses a file-based approach to caching. When a function is called, the class checks if the result for the given input parameters already exists in the cache directory. If it does, the result is loaded from the file; otherwise, the function is computed, and the result is saved to a new file in the cache.
 
