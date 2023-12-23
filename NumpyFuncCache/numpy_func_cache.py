@@ -53,7 +53,7 @@ class NumpyFuncCache:
 
         # Generate a unique hash for the function call to use as a filename
         input_str = f"{func_name}({args_str},{kwargs_str})"
-        unique_file_name_hash = hashlib.sha256(input_str.encode()).hexdigest()
+        unique_file_name_hash = hashlib.md5(input_str.encode()).hexdigest()
 
         # Construct the full path to the cache file
         file_cache_path = os.path.join(self.cache_path, f"{unique_file_name_hash}.npy")
