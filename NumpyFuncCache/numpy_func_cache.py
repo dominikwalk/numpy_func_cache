@@ -1,5 +1,6 @@
 import hashlib
 import os
+import threading
 from functools import partial
 from typing import Any, Callable
 
@@ -23,6 +24,7 @@ class NumpyFuncCache:
             cache_path (str): The path where caching files should be stored.
         """
         self.cache_path = cache_path
+        self.lock = threading.Lock()  # Lock for thread safety
 
         try:
             # Create the cache directory if it does not exist
@@ -57,15 +59,16 @@ class NumpyFuncCache:
         file_cache_path = os.path.join(self.cache_path, f"{unique_file_name_hash}.npy")
 
         try:
-            # Check if the cached result already exists
-            if os.path.exists(file_cache_path):
-                # Load the result from the cache file
-                result = np.load(file_cache_path)
-            else:
-                # Compute the result using the original function
-                result = func(*args, **kwargs)
-                # Save the result to the cache file
-                np.save(file_cache_path, result)
+            with self.lock:  # Acquire the lock before cache access
+                # Check if the cached result already exists
+                if os.path.exists(file_cache_path):
+                    # Load the result from the cache file
+                    result = np.load(file_cache_path)
+                else:
+                    # Compute the result using the original function
+                    result = func(*args, **kwargs)
+                    # Save the result to the cache file
+                    np.save(file_cache_path, result)
         except Exception as e:
             # Handle errors during the cache operation
             raise RuntimeError(f"Error during cache operation: {e}")
@@ -100,20 +103,21 @@ class NumpyFuncCache:
             remove_dir (bool): If True, removes the entire cache directory.
         """
         try:
-            # Iterate over all files in the cache directory
-            for file_name in os.listdir(self.cache_path):
-                file_path = os.path.join(self.cache_path, file_name)
-                try:
-                    # Delete each file in the cache directory
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                except Exception as e:
-                    # Handle errors during file deletion
-                    print(f"Error deleting file {file_path}: {e}")
+            with self.lock:  # Acquire the lock before cache clearing
+                # Iterate over all files in the cache directory
+                for file_name in os.listdir(self.cache_path):
+                    file_path = os.path.join(self.cache_path, file_name)
+                    try:
+                        # Delete each file in the cache directory
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
+                    except Exception as e:
+                        # Handle errors during file deletion
+                        print(f"Error deleting file {file_path}: {e}")
 
-            # Optionally remove the entire cache directory
-            if remove_dir:
-                os.rmdir(self.cache_path)
+                # Optionally remove the entire cache directory
+                if remove_dir:
+                    os.rmdir(self.cache_path)
         except Exception as e:
             # Handle errors during cache clearing
             raise RuntimeError(f"Error during cache clearing: {e}")
