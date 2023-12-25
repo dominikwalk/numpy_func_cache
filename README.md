@@ -55,7 +55,6 @@ The class uses a file-based approach to caching. When a function is called, the 
 
 ## Example
 ```python
-# Example usage of the NumpyFuncCache class
 import numpy as np
 from NumpyFuncCache.numpy_func_cache import NumpyFuncCache
 
@@ -74,13 +73,18 @@ def expensive_function(x, y=10):
 cached_expensive_function = cache.create_cached_func(expensive_function)
 
 # Call the original function
-original_result = expensive_function(7, y=42)
+result1 = expensive_function(7, y=42)
 
-# Call the cached function
-cached_result = cached_expensive_function(7, y=42)
+# Call the cached function for the first time
+# and it will calculate and cache the result
+result2 = cached_expensive_function(7, y=42)
+# Call the cached function again
+# and it will skip the calculation and read the result from the file-cache
+result3 = cached_expensive_function(7, y=42)
 
-# Both results should be the same NumPy array
-assert np.array_equal(original_result, cached_result)
+# All results should be the same NumPy array
+assert np.array_equal(result1, result2)
+assert np.array_equal(result2, result3)
 
 # Clear the cache (remove only files)
 cache.clear_cache()
