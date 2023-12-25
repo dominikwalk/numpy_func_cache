@@ -4,7 +4,7 @@ import numpy as np
 import threading
 import pytest
 
-from NumpyFuncCache.numpy_func_cache import NumpyFuncCache
+from numpy_func_cache import NumpyFuncCache
 
 
 # Fixture to create a temporary directory for testing

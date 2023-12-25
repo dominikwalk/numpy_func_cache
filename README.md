@@ -56,7 +56,7 @@ The class uses a file-based approach to caching. When a function is called, the 
 ## Example
 ```python
 import numpy as np
-from NumpyFuncCache.numpy_func_cache import NumpyFuncCache
+from numpy_func_cache import NumpyFuncCache
 
 # Initialize the cache with a specified directory
 cache = NumpyFuncCache(".np_func_cache")
