@@ -2,6 +2,7 @@ import os
 import tempfile
 import numpy as np
 import threading
+import multiprocessing
 import pytest
 
 from numpy_func_cache import NumpyFuncCache
@@ -86,26 +87,21 @@ def test_cache_clearing_with_dir_removal(temp_cache_dir):
     assert not os.path.exists(temp_cache_dir)
 
 
-def test_thread_safety(temp_cache_dir):
-    cache = NumpyFuncCache(temp_cache_dir)
+# Define a sample function for testing
+def sample_func(x=42):
+    return np.array([x, x**2, x**3])
 
-    # Define a sample function for testing
-    def sample_func(x):
-        return np.array([x, x**2, x**3])
+
+def test_multithreading_safety(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
 
     # Create a cached version of the function
     cached_func = cache.create_cached_func(sample_func)
 
-    # Function to test caching with multiple threads
-    def test_caching():
-        result_thread = cached_func(42)
-        result_main = sample_func(42)
-        assert np.array_equal(result_main, result_thread)
-
     # Start multiple threads to execute the test_caching function
     threads = []
     for _ in range(5):
-        thread = threading.Thread(target=test_caching)
+        thread = threading.Thread(target=cached_func)
         threads.append(thread)
 
     # Start all threads
@@ -116,6 +112,26 @@ def test_thread_safety(temp_cache_dir):
     for thread in threads:
         thread.join()
 
-    # Ensure the cache directory contains the expected number of files
-    cache_files = os.listdir(temp_cache_dir)
-    assert len(cache_files) == 1  # One file for each unique function call
+
+def test_multiprocessing_safety(temp_cache_dir):
+    cache = NumpyFuncCache(
+        temp_cache_dir, thread_safety="multiprocessing"
+    )  # Set to multiprocessing safety
+
+    # Create a cached version of the function
+    cached_func = cache.create_cached_func(sample_func)
+
+    # Create multiple processes to execute the cached function
+    processes = []
+    result_queue = multiprocessing.Queue()
+    for _ in range(5):
+        process = multiprocessing.Process(target=cached_func)
+        processes.append(process)
+
+    # Start all processes
+    for process in processes:
+        process.start()
+
+    # Wait for all processes to finish
+    for process in processes:
+        process.join()

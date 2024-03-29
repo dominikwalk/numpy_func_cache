@@ -1,6 +1,7 @@
 import hashlib
 import os
 import threading
+import multiprocessing
 from functools import partial
 from typing import Any, Callable
 
@@ -16,15 +17,21 @@ class NumpyFuncCache:
     Created on: December 17, 2023
     """
 
-    def __init__(self, cache_path: str) -> None:
+    def __init__(self, cache_path: str, thread_safety: str = "multithreading") -> None:
         """
         Initializes the NumpyFuncCache class.
 
         Parameters:
             cache_path (str): The path where caching files should be stored.
+            thread_safety (str): Specifies the thread safety mode. 
+                                 Possible values: "multithreading" or "multiprocessing".
+                                 Default is "multithreading".
         """
         self.cache_path = cache_path
-        self.lock = threading.Lock()  # Lock for thread safety
+        if thread_safety == "multiprocessing":
+            self.lock = multiprocessing.Lock()  # Lock for multiprocessing safety
+        else:
+            self.lock = threading.Lock()  # Lock for multithreading safety
 
         try:
             # Create the cache directory if it does not exist
