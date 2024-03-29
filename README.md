@@ -12,7 +12,8 @@ In the interests of simplicity, the `NumpyFuncCache` class calculates the hash f
 The class does not currently manage or limit the size of the cache. Depending on the size of cached NumPy arrays, the cache directory may grow large over time. Users are advised to monitor the cache directory size and take appropriate actions, such as clearing the cache or implementing additional mechanisms to manage cache size.
 
 ### Thread Safety
-The `NumpyFuncCache` class is thread-safe, ensuring that cache operations are atomic and prevent race conditions in a multithreaded environment.
+The `NumpyFuncCache` class provides options for thread safety, allowing users to choose between "multithreading" or "multiprocessing" modes. In "multithreading" mode (default), the class uses threading locks to ensure thread safety. In "multiprocessing" mode, it employs multiprocessing locks for process safety.
+
 
 ## Usage
 
