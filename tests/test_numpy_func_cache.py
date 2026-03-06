@@ -43,6 +43,22 @@ def test_cached_func(temp_cache_dir):
     cache_files = os.listdir(temp_cache_dir)
     assert len(cache_files) == 2  # One file for each function call
 
+def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    call_count = {"count": 0}
+
+    def sample_func(a, b):
+        call_count["count"] += 1
+        return np.array([a, b, a + b])
+
+    cached_func = cache.create_cached_func(sample_func)
+
+    result1 = cached_func(a=1, b=2)
+    result2 = cached_func(b=2, a=1)
+
+    assert np.array_equal(result1, result2)
+    assert call_count["count"] == 1
+    assert len(os.listdir(temp_cache_dir)) == 1
 
 def test_cache_clearing(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
