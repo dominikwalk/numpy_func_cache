@@ -56,7 +56,9 @@ class NumpyFuncCache:
         """
         func_name = func.__name__
         args_str = ",".join(map(repr, args))
-        kwargs_str = ",".join(f"{key}={value!r}" for key, value in kwargs.items())
+        kwargs_str = ",".join(
+            f"{key}={value!r}" for key, value in sorted(kwargs.items())
+        )
 
         # Generate a unique hash for the function call to use as a filename
         input_str = f"{func_name}({args_str},{kwargs_str})"
