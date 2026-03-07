@@ -1,4 +1,5 @@
 import hashlib
+import inspect
 import os
 import threading
 import multiprocessing
@@ -55,7 +56,7 @@ class NumpyFuncCache:
             np.ndarray: The result of the function, either from the cache or recomputed.
         """
         hasher = hashlib.md5()
-        self._update_cache_key_hash(hasher, ("func", func.__name__))
+        self._update_cache_key_hash(hasher, self._get_function_fingerprint(func))
         self._update_cache_key_hash(hasher, args)
         self._update_cache_key_hash(hasher, kwargs)
         unique_file_name_hash = hasher.hexdigest()
@@ -80,6 +81,48 @@ class NumpyFuncCache:
 
         return result
 
+    def _get_function_fingerprint(
+        self, func: Callable[..., np.ndarray]
+    ) -> tuple[Any, ...]:
+        """
+        Build a deterministic fingerprint for function identity and implementation.
+
+        This lets cache entries change when function code changes, even if the
+        function name stays the same.
+        """
+        module_name = getattr(func, "__module__", None)
+        qualname = getattr(func, "__qualname__", getattr(func, "__name__", repr(func)))
+
+        code_obj = getattr(func, "__code__", None)
+        code_fingerprint = None
+        if code_obj is not None:
+            code_fingerprint = (
+                code_obj.co_code,
+                code_obj.co_consts,
+                code_obj.co_names,
+                code_obj.co_varnames,
+                code_obj.co_argcount,
+                code_obj.co_kwonlyargcount,
+            )
+
+        source_hash = None
+        try:
+            source = inspect.getsource(func)
+            source_hash = hashlib.md5(source.encode("utf-8")).hexdigest()
+        except (OSError, TypeError):
+            # Source is not always available (e.g., dynamic/built-in functions).
+            source_hash = None
+
+        return (
+            "func",
+            module_name,
+            qualname,
+            code_fingerprint,
+            getattr(func, "__defaults__", None),
+            getattr(func, "__kwdefaults__", None),
+            source_hash,
+        )
+
     def _update_cache_key_hash(self, hasher: Any, value: Any) -> None:
         """
         Update a hash object with a deterministic representation of `value`.
@@ -87,6 +130,12 @@ class NumpyFuncCache:
         NumPy arrays are hashed by dtype, shape and raw bytes to avoid key
         collisions caused by truncated repr output for large arrays.
         """
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            hasher.update(b"bytes:")
+            hasher.update(bytes(value))
+            hasher.update(b";")
+            return
+
         if isinstance(value, np.ndarray):
             contiguous = np.ascontiguousarray(value)
             hasher.update(b"ndarray:")
