@@ -54,15 +54,11 @@ class NumpyFuncCache:
         Returns:
             np.ndarray: The result of the function, either from the cache or recomputed.
         """
-        func_name = func.__name__
-        args_str = ",".join(map(repr, args))
-        kwargs_str = ",".join(
-            f"{key}={value!r}" for key, value in sorted(kwargs.items())
-        )
-
-        # Generate a unique hash for the function call to use as a filename
-        input_str = f"{func_name}({args_str},{kwargs_str})"
-        unique_file_name_hash = hashlib.md5(input_str.encode()).hexdigest()
+        hasher = hashlib.md5()
+        self._update_cache_key_hash(hasher, ("func", func.__name__))
+        self._update_cache_key_hash(hasher, args)
+        self._update_cache_key_hash(hasher, kwargs)
+        unique_file_name_hash = hasher.hexdigest()
 
         # Construct the full path to the cache file
         file_cache_path = os.path.join(self.cache_path, f"{unique_file_name_hash}.npy")
@@ -83,6 +79,59 @@ class NumpyFuncCache:
             raise RuntimeError(f"Error during cache operation: {e}")
 
         return result
+
+    def _update_cache_key_hash(self, hasher: Any, value: Any) -> None:
+        """
+        Update a hash object with a deterministic representation of `value`.
+
+        NumPy arrays are hashed by dtype, shape and raw bytes to avoid key
+        collisions caused by truncated repr output for large arrays.
+        """
+        if isinstance(value, np.ndarray):
+            contiguous = np.ascontiguousarray(value)
+            hasher.update(b"ndarray:")
+            hasher.update(str(contiguous.dtype).encode("utf-8"))
+            hasher.update(b":")
+            hasher.update(str(contiguous.shape).encode("utf-8"))
+            hasher.update(b":")
+            hasher.update(contiguous.view(np.uint8).tobytes())
+            hasher.update(b";")
+            return
+
+        if isinstance(value, np.generic):
+            self._update_cache_key_hash(hasher, np.asarray(value))
+            return
+
+        if isinstance(value, tuple):
+            hasher.update(b"tuple[")
+            for item in value:
+                self._update_cache_key_hash(hasher, item)
+                hasher.update(b",")
+            hasher.update(b"]")
+            return
+
+        if isinstance(value, list):
+            hasher.update(b"list[")
+            for item in value:
+                self._update_cache_key_hash(hasher, item)
+                hasher.update(b",")
+            hasher.update(b"]")
+            return
+
+        if isinstance(value, dict):
+            hasher.update(b"dict{")
+            for key in sorted(value.keys(), key=repr):
+                self._update_cache_key_hash(hasher, key)
+                hasher.update(b":")
+                self._update_cache_key_hash(hasher, value[key])
+                hasher.update(b",")
+            hasher.update(b"}")
+            return
+
+        hasher.update(type(value).__qualname__.encode("utf-8"))
+        hasher.update(b":")
+        hasher.update(repr(value).encode("utf-8"))
+        hasher.update(b";")
 
     def create_cached_func(
         self, func: Callable[..., np.ndarray]
