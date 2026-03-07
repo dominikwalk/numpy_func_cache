@@ -6,7 +6,10 @@
 ## Limits and Important Notes
 
 ### Function Hashing
-In the interests of simplicity, the `NumpyFuncCache` class calculates the hash for caching based on the function name and input parameters, **making it vulnerable to changes to the internal structure or calculations of the function**. If there are changes to the function, **users are responsible for manually clearing the cache to ensure the accuracy of the cached results.**
+`NumpyFuncCache` calculates the cache hash from function identity (`module`/`qualname`), function implementation metadata (code object details and, when available, source hash), and input parameters.
+This means cache entries are automatically invalidated in common cases where the function implementation changes.
+
+Limits still apply for dynamic behavior outside the function code itself (for example, changed global state, external files, or data fetched from services). In these scenarios, users may still need to clear the cache manually.
 
 ### Cache Size
 The class does not currently manage or limit the size of the cache. Depending on the size of cached NumPy arrays, the cache directory may grow large over time. Users are advised to monitor the cache directory size and take appropriate actions, such as clearing the cache or implementing additional mechanisms to manage cache size.

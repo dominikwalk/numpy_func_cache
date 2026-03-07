@@ -68,6 +68,23 @@ def test_large_numpy_args_do_not_collide_on_repr(temp_cache_dir):
     assert len(os.listdir(temp_cache_dir)) == 2
 
 
+def test_function_implementation_change_uses_new_cache_entry(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    namespace = {"np": np, "__name__": "dynamic_test_module"}
+
+    exec("def sample_func(x):\n    return np.array([x + 1])", namespace)
+    cached_func_v1 = cache.create_cached_func(namespace["sample_func"])
+    result_v1 = cached_func_v1(3)
+
+    exec("def sample_func(x):\n    return np.array([x + 2])", namespace)
+    cached_func_v2 = cache.create_cached_func(namespace["sample_func"])
+    result_v2 = cached_func_v2(3)
+
+    assert np.array_equal(result_v1, np.array([4]))
+    assert np.array_equal(result_v2, np.array([5]))
+    assert len(os.listdir(temp_cache_dir)) == 2
+
+
 def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
     call_count = {"count": 0}
