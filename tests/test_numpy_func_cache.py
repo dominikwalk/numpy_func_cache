@@ -43,6 +43,31 @@ def test_cached_func(temp_cache_dir):
     cache_files = os.listdir(temp_cache_dir)
     assert len(cache_files) == 2  # One file for each function call
 
+
+def test_large_numpy_args_do_not_collide_on_repr(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    call_count = {"count": 0}
+
+    def sample_func(x):
+        call_count["count"] += 1
+        return np.array([int(np.sum(x))])
+
+    cached_func = cache.create_cached_func(sample_func)
+
+    arr1 = np.concatenate([np.arange(10), np.ones(2000, dtype=int), np.arange(10)])
+    arr2 = np.concatenate([np.arange(10), np.full(2000, 2, dtype=int), np.arange(10)])
+
+    # Demonstrates why repr-based hashing is unsafe for large arrays.
+    assert repr(arr1) == repr(arr2)
+
+    result1 = cached_func(arr1)
+    result2 = cached_func(arr2)
+
+    assert not np.array_equal(result1, result2)
+    assert call_count["count"] == 2
+    assert len(os.listdir(temp_cache_dir)) == 2
+
+
 def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
     call_count = {"count": 0}
