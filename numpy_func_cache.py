@@ -4,7 +4,7 @@ import os
 import threading
 import multiprocessing
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
 
 import numpy as np
 
@@ -83,7 +83,7 @@ class NumpyFuncCache:
 
     def _get_function_fingerprint(
         self, func: Callable[..., np.ndarray]
-    ) -> tuple[Any, ...]:
+    ) -> Tuple[Any, ...]:
         """
         Build a deterministic fingerprint for function identity and implementation.
 
