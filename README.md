@@ -97,5 +97,21 @@ cache.clear_cache()
 cache.clear_cache(remove_dir=True)
 ```
 
+## Testing
+
+Run the full local Python-version matrix (recommended before opening a PR):
+
+```bash
+./scripts/run_pytest_matrix.sh
+```
+
+Run tests for a single Python version:
+
+```bash
+./scripts/run_pytest_matrix.sh single 3.10
+```
+
+The supported versions are `3.8`, `3.9`, `3.10`, `3.11`, and `3.12`.
+
 ## Author
 - Dominik Walk
