@@ -106,7 +106,6 @@ def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
 
 
 def test_array_hashing_is_layout_independent(temp_cache_dir):
-def test_cache_files_are_written_to_sharded_directories(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
     call_count = {"count": 0}
 
