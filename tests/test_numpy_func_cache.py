@@ -103,6 +103,28 @@ def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
     assert call_count["count"] == 1
     assert len(os.listdir(temp_cache_dir)) == 1
 
+
+def test_array_hashing_is_layout_independent(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    call_count = {"count": 0}
+
+    def sample_func(x):
+        call_count["count"] += 1
+        return np.array([int(np.sum(x))])
+
+    cached_func = cache.create_cached_func(sample_func)
+
+    base = np.arange(12).reshape(3, 4)
+    fortran_layout = np.asfortranarray(base)
+
+    result1 = cached_func(base)
+    result2 = cached_func(fortran_layout)
+
+    assert np.array_equal(result1, result2)
+    assert call_count["count"] == 1
+    assert len(os.listdir(temp_cache_dir)) == 1
+
+
 def test_cache_clearing(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
 
