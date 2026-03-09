@@ -1,6 +1,7 @@
 import hashlib
 import inspect
 import os
+import tempfile
 import threading
 import multiprocessing
 from functools import partial
@@ -78,7 +79,7 @@ class NumpyFuncCache:
                     # Compute the result using the original function
                     result = func(*args, **kwargs)
                     # Save the result to the cache file
-                    np.save(file_cache_path, result)
+                    self._save_array_atomically(file_cache_path, result)
         except Exception as e:
             # Handle errors during the cache operation
             raise RuntimeError(f"Error during cache operation: {e}")
@@ -95,6 +96,21 @@ class NumpyFuncCache:
                 lock = threading.Lock()
                 self._key_locks[cache_key] = lock
             return lock
+
+    def _save_array_atomically(self, file_cache_path: str, result: np.ndarray) -> None:
+        file_name = os.path.basename(file_cache_path)
+        fd, temp_file_path = tempfile.mkstemp(
+            prefix=f".{file_name}.",
+            suffix=".tmp",
+            dir=self.cache_path,
+        )
+        try:
+            with os.fdopen(fd, "wb") as temp_file:
+                np.save(temp_file, result)
+            os.replace(temp_file_path, file_cache_path)
+        finally:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
 
     def _get_function_fingerprint(
         self, func: Callable[..., np.ndarray]

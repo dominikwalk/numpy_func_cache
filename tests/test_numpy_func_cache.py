@@ -168,6 +168,39 @@ def test_cache_clearing_with_dir_removal(temp_cache_dir):
     assert not os.path.exists(temp_cache_dir)
 
 
+def test_atomic_write_leaves_no_temp_files(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+
+    def sample_func(x):
+        return np.array([x, x**2, x**3])
+
+    cached_func = cache.create_cached_func(sample_func)
+    cached_func(2)
+
+    files = os.listdir(temp_cache_dir)
+    assert len(files) == 1
+    assert files[0].endswith(".npy")
+    assert not any(file_name.endswith(".tmp") for file_name in files)
+
+
+def test_atomic_write_cleans_temp_files_on_save_error(temp_cache_dir, monkeypatch):
+    cache = NumpyFuncCache(temp_cache_dir)
+
+    def sample_func(x):
+        return np.array([x, x**2, x**3])
+
+    def failing_save(*args, **kwargs):
+        raise IOError("save failed")
+
+    monkeypatch.setattr(np, "save", failing_save)
+    cached_func = cache.create_cached_func(sample_func)
+
+    with pytest.raises(RuntimeError, match="save failed"):
+        cached_func(2)
+
+    assert not any(file_name.endswith(".tmp") for file_name in os.listdir(temp_cache_dir))
+
+
 # Define a sample function for testing
 def sample_func(x=42):
     return np.array([x, x**2, x**3])
