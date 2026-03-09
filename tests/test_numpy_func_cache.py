@@ -1,4 +1,5 @@
 import os
+import hashlib
 import tempfile
 import numpy as np
 import threading
@@ -105,6 +106,7 @@ def test_kwargs_order_uses_same_cache_entry(temp_cache_dir):
 
 
 def test_array_hashing_is_layout_independent(temp_cache_dir):
+def test_cache_files_are_written_to_sharded_directories(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
     call_count = {"count": 0}
 
@@ -125,6 +127,54 @@ def test_array_hashing_is_layout_independent(temp_cache_dir):
     assert len(os.listdir(temp_cache_dir)) == 1
 
 
+def test_cache_files_are_written_to_sharded_directories(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+
+    def sample_func(x):
+        return np.array([x, x**2, x**3])
+
+    cached_func = cache.create_cached_func(sample_func)
+    cached_func(2)
+
+    npy_files = []
+    for root, _, files in os.walk(temp_cache_dir):
+        for file_name in files:
+            if file_name.endswith(".npy"):
+                npy_files.append(
+                    os.path.relpath(os.path.join(root, file_name), temp_cache_dir)
+                )
+
+    assert len(npy_files) == 1
+    relative_path_parts = npy_files[0].split(os.sep)
+    assert len(relative_path_parts) == 3
+    assert len(relative_path_parts[0]) == 2
+    assert len(relative_path_parts[1]) == 2
+
+
+def test_legacy_flat_cache_file_is_reused(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    call_count = {"count": 0}
+
+    def sample_func(x):
+        call_count["count"] += 1
+        return np.array([x + 1])
+
+    hasher = hashlib.md5()
+    cache._update_cache_key_hash(hasher, cache._get_function_fingerprint(sample_func))
+    cache._update_cache_key_hash(hasher, (3,))
+    cache._update_cache_key_hash(hasher, {})
+    cache_hash = hasher.hexdigest()
+
+    legacy_path = os.path.join(temp_cache_dir, f"{cache_hash}.npy")
+    np.save(legacy_path, np.array([1234]))
+
+    cached_func = cache.create_cached_func(sample_func)
+    result = cached_func(3)
+
+    assert np.array_equal(result, np.array([1234]))
+    assert call_count["count"] == 0
+
+
 def test_cache_clearing(temp_cache_dir):
     cache = NumpyFuncCache(temp_cache_dir)
 
@@ -143,8 +193,8 @@ def test_cache_clearing(temp_cache_dir):
     cache.clear_cache()
 
     # Ensure the cache directory is empty after clearing
-    cache_files = os.listdir(temp_cache_dir)
-    assert not cache_files
+    for _, _, files in os.walk(temp_cache_dir):
+        assert not files
 
 
 def test_cache_clearing_with_dir_removal(temp_cache_dir):

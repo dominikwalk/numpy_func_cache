@@ -5,7 +5,7 @@ import tempfile
 import threading
 import multiprocessing
 from functools import partial
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -66,19 +66,23 @@ class NumpyFuncCache:
         unique_file_name_hash = hasher.hexdigest()
 
         # Construct the full path to the cache file
-        file_cache_path = os.path.join(self.cache_path, f"{unique_file_name_hash}.npy")
+        file_cache_path = self._get_sharded_cache_path(unique_file_name_hash)
 
         try:
             lock = self._get_cache_lock(unique_file_name_hash)
             with lock:  # Acquire the lock before cache access
+                existing_file_cache_path = self._find_existing_cache_path(
+                    unique_file_name_hash
+                )
                 # Check if the cached result already exists
-                if os.path.exists(file_cache_path):
+                if existing_file_cache_path is not None:
                     # Load the result from the cache file
-                    result = np.load(file_cache_path)
+                    result = np.load(existing_file_cache_path)
                 else:
                     # Compute the result using the original function
                     result = func(*args, **kwargs)
                     # Save the result to the cache file
+                    os.makedirs(os.path.dirname(file_cache_path), exist_ok=True)
                     self._save_array_atomically(file_cache_path, result)
         except Exception as e:
             # Handle errors during the cache operation
@@ -111,6 +115,28 @@ class NumpyFuncCache:
         finally:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+
+    def _get_sharded_cache_path(self, cache_hash: str) -> str:
+        return os.path.join(
+            self.cache_path,
+            cache_hash[:2],
+            cache_hash[2:4],
+            f"{cache_hash}.npy",
+        )
+
+    def _get_legacy_cache_path(self, cache_hash: str) -> str:
+        return os.path.join(self.cache_path, f"{cache_hash}.npy")
+
+    def _find_existing_cache_path(self, cache_hash: str) -> Optional[str]:
+        sharded_path = self._get_sharded_cache_path(cache_hash)
+        if os.path.exists(sharded_path):
+            return sharded_path
+
+        legacy_path = self._get_legacy_cache_path(cache_hash)
+        if os.path.exists(legacy_path):
+            return legacy_path
+
+        return None
 
     def _get_function_fingerprint(
         self, func: Callable[..., np.ndarray]
@@ -242,16 +268,20 @@ class NumpyFuncCache:
         """
         try:
             with self.lock:  # Acquire the lock before cache clearing
-                # Iterate over all files in the cache directory
-                for file_name in os.listdir(self.cache_path):
-                    file_path = os.path.join(self.cache_path, file_name)
-                    try:
-                        # Delete each file in the cache directory
-                        if os.path.isfile(file_path):
+                for root, dirs, files in os.walk(self.cache_path, topdown=False):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        try:
                             os.remove(file_path)
-                    except Exception as e:
-                        # Handle errors during file deletion
-                        print(f"Error deleting file {file_path}: {e}")
+                        except Exception as e:
+                            print(f"Error deleting file {file_path}: {e}")
+
+                    for directory in dirs:
+                        directory_path = os.path.join(root, directory)
+                        try:
+                            os.rmdir(directory_path)
+                        except Exception as e:
+                            print(f"Error deleting directory {directory_path}: {e}")
 
                 # Optionally remove the entire cache directory
                 if remove_dir:
