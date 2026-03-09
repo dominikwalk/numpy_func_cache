@@ -143,7 +143,7 @@ class NumpyFuncCache:
             hasher.update(b":")
             hasher.update(str(contiguous.shape).encode("utf-8"))
             hasher.update(b":")
-            hasher.update(contiguous.view(np.uint8).tobytes())
+            hasher.update(memoryview(contiguous).cast("B"))
             hasher.update(b";")
             return
 
