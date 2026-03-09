@@ -71,15 +71,22 @@ class NumpyFuncCache:
         try:
             if self.thread_safety == "multiprocessing":
                 with self.lock:
-                    if os.path.exists(file_cache_path):
-                        return np.load(file_cache_path)
+                    existing_file_cache_path = self._find_existing_cache_path(
+                        unique_file_name_hash
+                    )
+                    if existing_file_cache_path is not None:
+                        return np.load(existing_file_cache_path)
 
                 result = func(*args, **kwargs)
 
                 with self.lock:
-                    if os.path.exists(file_cache_path):
-                        return np.load(file_cache_path)
-                    np.save(file_cache_path, result)
+                    existing_file_cache_path = self._find_existing_cache_path(
+                        unique_file_name_hash
+                    )
+                    if existing_file_cache_path is not None:
+                        return np.load(existing_file_cache_path)
+                    os.makedirs(os.path.dirname(file_cache_path), exist_ok=True)
+                    self._save_array_atomically(file_cache_path, result)
 
                 return result
 
