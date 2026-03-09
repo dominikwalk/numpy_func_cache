@@ -3,6 +3,7 @@ import tempfile
 import numpy as np
 import threading
 import multiprocessing
+import time
 import pytest
 
 from numpy_func_cache import NumpyFuncCache
@@ -169,6 +170,60 @@ def test_multithreading_safety(temp_cache_dir):
     # Wait for all threads to finish
     for thread in threads:
         thread.join()
+
+
+def test_multithreading_same_key_computes_once(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    call_count = {"count": 0}
+    call_count_lock = threading.Lock()
+    start_event = threading.Event()
+
+    def sample(x=42):
+        start_event.wait()
+        with call_count_lock:
+            call_count["count"] += 1
+        time.sleep(0.1)
+        return np.array([x, x**2, x**3])
+
+    cached_func = cache.create_cached_func(sample)
+
+    threads = [threading.Thread(target=cached_func) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+
+    start_event.set()
+    for thread in threads:
+        thread.join()
+
+    assert call_count["count"] == 1
+    assert len(os.listdir(temp_cache_dir)) == 1
+
+
+def test_multithreading_different_keys_run_in_parallel(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir)
+    start_event = threading.Event()
+
+    def sample(x):
+        start_event.wait()
+        time.sleep(0.5)
+        return np.array([x])
+
+    cached_func = cache.create_cached_func(sample)
+
+    thread1 = threading.Thread(target=cached_func, args=(1,))
+    thread2 = threading.Thread(target=cached_func, args=(2,))
+    thread1.start()
+    thread2.start()
+
+    start = time.perf_counter()
+    start_event.set()
+    thread1.join()
+    thread2.join()
+    elapsed = time.perf_counter() - start
+
+    # With per-key locks these calls should not serialize behind one global lock.
+    assert elapsed < 0.9
+    assert len(os.listdir(temp_cache_dir)) == 2
 
 
 def test_multiprocessing_safety(temp_cache_dir):
