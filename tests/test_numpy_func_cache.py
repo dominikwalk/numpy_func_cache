@@ -361,3 +361,34 @@ def test_multiprocessing_safety(temp_cache_dir):
     # Wait for all processes to finish
     for process in processes:
         process.join()
+
+
+def test_multiprocessing_mode_computes_outside_global_lock(temp_cache_dir):
+    cache = NumpyFuncCache(temp_cache_dir, thread_safety="multiprocessing")
+
+    class TrackingLock:
+        def __init__(self):
+            self.locked = False
+
+        def __enter__(self):
+            assert self.locked is False
+            self.locked = True
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.locked = False
+
+    tracking_lock = TrackingLock()
+    cache.lock = tracking_lock
+    call_count = {"count": 0}
+
+    def guarded_func(x):
+        assert tracking_lock.locked is False
+        call_count["count"] += 1
+        return np.array([x, x**2, x**3])
+
+    cached_func = cache.create_cached_func(guarded_func)
+    result = cached_func(2)
+
+    assert np.array_equal(result, np.array([2, 4, 8]))
+    assert call_count["count"] == 1

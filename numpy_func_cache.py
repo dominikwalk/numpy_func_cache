@@ -69,6 +69,27 @@ class NumpyFuncCache:
         file_cache_path = self._get_sharded_cache_path(unique_file_name_hash)
 
         try:
+            if self.thread_safety == "multiprocessing":
+                with self.lock:
+                    existing_file_cache_path = self._find_existing_cache_path(
+                        unique_file_name_hash
+                    )
+                    if existing_file_cache_path is not None:
+                        return np.load(existing_file_cache_path)
+
+                result = func(*args, **kwargs)
+
+                with self.lock:
+                    existing_file_cache_path = self._find_existing_cache_path(
+                        unique_file_name_hash
+                    )
+                    if existing_file_cache_path is not None:
+                        return np.load(existing_file_cache_path)
+                    os.makedirs(os.path.dirname(file_cache_path), exist_ok=True)
+                    self._save_array_atomically(file_cache_path, result)
+
+                return result
+
             lock = self._get_cache_lock(unique_file_name_hash)
             with lock:  # Acquire the lock before cache access
                 existing_file_cache_path = self._find_existing_cache_path(
