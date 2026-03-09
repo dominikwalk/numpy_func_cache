@@ -4,7 +4,7 @@ import os
 import threading
 import multiprocessing
 from functools import partial
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 
@@ -29,10 +29,13 @@ class NumpyFuncCache:
                                  Default is "multithreading".
         """
         self.cache_path = cache_path
+        self.thread_safety = thread_safety
         if thread_safety == "multiprocessing":
             self.lock = multiprocessing.Lock()  # Lock for multiprocessing safety
         else:
             self.lock = threading.Lock()  # Lock for multithreading safety
+            self._key_locks: Dict[str, threading.Lock] = {}
+            self._key_locks_guard = threading.Lock()
 
         try:
             # Create the cache directory if it does not exist
@@ -65,7 +68,8 @@ class NumpyFuncCache:
         file_cache_path = os.path.join(self.cache_path, f"{unique_file_name_hash}.npy")
 
         try:
-            with self.lock:  # Acquire the lock before cache access
+            lock = self._get_cache_lock(unique_file_name_hash)
+            with lock:  # Acquire the lock before cache access
                 # Check if the cached result already exists
                 if os.path.exists(file_cache_path):
                     # Load the result from the cache file
@@ -80,6 +84,17 @@ class NumpyFuncCache:
             raise RuntimeError(f"Error during cache operation: {e}")
 
         return result
+
+    def _get_cache_lock(self, cache_key: str) -> Any:
+        if self.thread_safety != "multithreading":
+            return self.lock
+
+        with self._key_locks_guard:
+            lock = self._key_locks.get(cache_key)
+            if lock is None:
+                lock = threading.Lock()
+                self._key_locks[cache_key] = lock
+            return lock
 
     def _get_function_fingerprint(
         self, func: Callable[..., np.ndarray]
