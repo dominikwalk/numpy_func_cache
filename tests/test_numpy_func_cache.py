@@ -226,10 +226,14 @@ def test_atomic_write_leaves_no_temp_files(temp_cache_dir):
     cached_func = cache.create_cached_func(sample_func)
     cached_func(2)
 
-    files = os.listdir(temp_cache_dir)
-    assert len(files) == 1
-    assert files[0].endswith(".npy")
-    assert not any(file_name.endswith(".tmp") for file_name in files)
+    all_files = []
+    for root, _, files in os.walk(temp_cache_dir):
+        for file_name in files:
+            all_files.append(os.path.join(root, file_name))
+
+    assert len(all_files) == 1
+    assert all_files[0].endswith(".npy")
+    assert not any(file_path.endswith(".tmp") for file_path in all_files)
 
 
 def test_atomic_write_cleans_temp_files_on_save_error(temp_cache_dir, monkeypatch):
@@ -247,7 +251,12 @@ def test_atomic_write_cleans_temp_files_on_save_error(temp_cache_dir, monkeypatc
     with pytest.raises(RuntimeError, match="save failed"):
         cached_func(2)
 
-    assert not any(file_name.endswith(".tmp") for file_name in os.listdir(temp_cache_dir))
+    all_files = []
+    for root, _, files in os.walk(temp_cache_dir):
+        for file_name in files:
+            all_files.append(os.path.join(root, file_name))
+
+    assert not any(file_path.endswith(".tmp") for file_path in all_files)
 
 
 # Define a sample function for testing
