@@ -102,13 +102,17 @@ cache.clear_cache(remove_dir=True)
 Run the full local Python-version matrix (recommended before opening a PR):
 
 ```bash
-./scripts/run_pytest_matrix.sh
+uv run --python 3.8 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
+uv run --python 3.9 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
+uv run --python 3.10 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
+uv run --python 3.11 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
+uv run --python 3.12 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
 ```
 
 Run tests for a single Python version:
 
 ```bash
-./scripts/run_pytest_matrix.sh single 3.10
+uv run --python 3.10 --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest -q
 ```
 
 The supported versions are `3.8`, `3.9`, `3.10`, `3.11`, and `3.12`.
